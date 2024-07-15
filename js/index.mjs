@@ -5,7 +5,7 @@ const sysroot_tarball = await fetch("sysroot.tar");
 if (!sysroot_tarball.ok) {
     throw new Error("failed to get sysroot tarball");
 }
-const tarball_bytes = await sysroot_tarball.bytes();
+const tarball_bytes = new Uint8Array(await sysroot_tarball.arrayBuffer());
 const tarball_fs = parse_tarball(tarball_bytes);
 // console.log(tarball_fs);
 
