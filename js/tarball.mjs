@@ -18,7 +18,7 @@ export function parse_tarball(tarball_bytes) {
         if (prefix.length != 0)
             filename = prefix + "/" + filename;
         if (filetype == 0x35) {
-            console.log("Directory: " + filename);
+            // console.log("Directory: " + filename);
             const path = filename.split("/");
             let dir = virtual_filesystem;
             for (let i = 0; i < path.length - 2; i++)
@@ -26,7 +26,7 @@ export function parse_tarball(tarball_bytes) {
             dir[path[path.length - 2]] = {};
             tar_offs += 512;
         } else if (filetype == 0x30) {
-            console.log("File: " + filename);
+            // console.log("File: " + filename);
             const filesize_str = get_c_str(tarball_bytes, tar_offs + 124, 11);
             const filesize = parseInt(filesize_str, 8);
             const filesize_round_up = (((filesize + 511) / 512) | 0) * 512;
@@ -41,7 +41,7 @@ export function parse_tarball(tarball_bytes) {
             tar_offs += 512 + filesize_round_up;
         } else if (filetype == 0x31) {
             const target_filename = get_c_str(tarball_bytes, tar_offs + 157, 100);
-            console.log("Hard link: " + filename + " -> " + target_filename);
+            // console.log("Hard link: " + filename + " -> " + target_filename);
 
             const tgt_path = target_filename.split("/");
             let tgt = virtual_filesystem;
