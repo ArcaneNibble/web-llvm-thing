@@ -7,7 +7,7 @@ if (!sysroot_tarball.ok) {
 }
 const tarball_bytes = await sysroot_tarball.bytes();
 const tarball_fs = parse_tarball(tarball_bytes);
-console.log(tarball_fs);
+// console.log(tarball_fs);
 
 let _xxx_assigned_ino_nums = 100;
 
@@ -63,7 +63,7 @@ const wasi_fs = fs_to_wasi_fs(tarball_fs, [
     ['test.c', new FileWithIno(new TextEncoder("utf-8").encode(`#include<stdio.h>\nint main() {printf("Hewwo world? %d\\n", 12345);return 0;}\n`), { ino: _xxx_assigned_ino_nums++ })],
     ['test.ld', new FileWithIno(new TextEncoder("utf-8").encode(`__flash = 0x08000000;\n__flash_size = 1M;\n__ram = 0x20000000;\n__ram_size = 16k;\n__stack_size = 512;\nINCLUDE picolibcpp.ld\n`), { ino: _xxx_assigned_ino_nums++ })],
 ]);
-console.log(wasi_fs);
+// console.log(wasi_fs);
 
 let wasm = await WebAssembly.compileStreaming(fetch("llvm.wasm"));
 
@@ -186,15 +186,15 @@ async function compile() {
         wasi_fs,
     ];
     let wasi_obj = new WASI(args, [], fds);
-    console.log(wasi_obj);
+    // console.log(wasi_obj);
 
     let inst = await WebAssembly.instantiate(wasm, {
         "wasi_snapshot_preview1": wasi_obj.wasiImport,
     });
-    console.log(inst);
+    // console.log(inst);
     wasi_obj.start(inst);
     console.log("COMPILE OKAY!");
-    console.log(wasi_fs);
+    // console.log(wasi_fs);
 }
 await compile();
 
@@ -227,15 +227,15 @@ async function link() {
         wasi_fs,
     ];
     let wasi_obj = new WASI(args, [], fds);
-    console.log(wasi_obj);
+    // console.log(wasi_obj);
 
     let inst = await WebAssembly.instantiate(wasm, {
         "wasi_snapshot_preview1": wasi_obj.wasiImport,
     });
-    console.log(inst);
+    // console.log(inst);
     wasi_obj.start(inst);
     console.log("LINK OKAY!");
-    console.log(wasi_fs);
+    // console.log(wasi_fs);
 }
 await link();
 
