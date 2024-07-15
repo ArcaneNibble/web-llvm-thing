@@ -8,7 +8,38 @@
 </head>
 
 <body>
-    asdf
+    <p id="downloading">Downloading, please wait (or check console to see if it broke)...</p>
+    <p>CPU: <select id="target">
+            <option value="cm01">Cortex-M0/M1 (ARM)</option>
+            <option value="cm3">Cortex-M3 (ARM)</option>
+            <option value="cm4">Cortex-M4 (ARM)</option>
+            <option value="cm4f">Cortex-M4F (ARM)</option>
+            <option value="qk-v2a">QingKe V2A (RISC-V)</option>
+            <option value="qk-v34a">QingKe V3A/V4A (RISC-V)</option>
+            <option value="qk-v4bc">QingKe V4B/V4C (RISC-V)</option>
+            <option value="qk-v4f">QingKe V4F (RISC-V)</option>
+            <option value="wasi">WebAssembly</option>
+        </select>
+    </p>
+    <p>Compiler flags: <input id="compileflags" value="-O2 -Wl,--gc-sections -lcrt0 -ldummyhost"></p>
+    <button id="compile">Compile!</button>
+    <p>C code</p>
+    <textarea id="sourcecode">#include &lt;stdio.h&gt;
+
+int main() {
+    printf("Hewwo world? %d\n", 12345);
+    return 0;
+}</textarea>
+    <p>Linker script (ignored for WebAssembly)</p>
+    <textarea id="linkscript">__flash = 0x08000000;
+__flash_size = 1M;
+__ram = 0x20000000;
+__ram_size = 16k;
+__stack_size = 512;
+
+INCLUDE picolibcpp.ld</textarea>
+    <p>output</p>
+    <textarea id="output"></textarea>
 </body>
 
 </html>

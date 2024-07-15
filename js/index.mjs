@@ -58,195 +58,149 @@ function fs_to_wasi_fs(fs, extra_things = undefined) {
     else
         return new PreopenDirectory('.', things);
 }
-const wasi_fs = fs_to_wasi_fs(tarball_fs, [
-    ['tmp', new DirWithIno(new Map(), _xxx_assigned_ino_nums++)],
-    ['test.c', new FileWithIno(new TextEncoder("utf-8").encode(`#include<stdio.h>\nint main() {printf("Hewwo world? %d\\n", 12345);return 0;}\n`), { ino: _xxx_assigned_ino_nums++ })],
-    ['test.ld', new FileWithIno(new TextEncoder("utf-8").encode(`__flash = 0x08000000;\n__flash_size = 1M;\n__ram = 0x20000000;\n__ram_size = 16k;\n__stack_size = 512;\nINCLUDE picolibcpp.ld\n`), { ino: _xxx_assigned_ino_nums++ })],
-]);
-// console.log(wasi_fs);
 
 let wasm = await WebAssembly.compileStreaming(fetch("llvm.wasm"));
 
-async function compile() {
-    let args = [
-        "clang",
-        "-cc1",
-        "-triple",
-        "thumbv6m-unknown-none-eabi",
-        "-emit-obj",
-        "-dumpdir",
-        "a-",
-        "-disable-free",
-        "-clear-ast-before-backend",
-        "-main-file-name",
-        "test.c",
-        "-mrelocation-model",
-        "static",
-        "-mframe-pointer=all",
-        "-fmath-errno",
-        "-ffp-contract=on",
-        "-fno-rounding-math",
-        "-mconstructor-aliases",
-        "-nostdsysteminc",
-        "-target-cpu",
-        "cortex-m0",
-        "-target-feature",
-        "+soft-float-abi",
-        "-target-feature",
-        "-vfp2",
-        "-target-feature",
-        "-vfp2sp",
-        "-target-feature",
-        "-vfp3",
-        "-target-feature",
-        "-vfp3d16",
-        "-target-feature",
-        "-vfp3d16sp",
-        "-target-feature",
-        "-vfp3sp",
-        "-target-feature",
-        "-fp16",
-        "-target-feature",
-        "-vfp4",
-        "-target-feature",
-        "-vfp4d16",
-        "-target-feature",
-        "-vfp4d16sp",
-        "-target-feature",
-        "-vfp4sp",
-        "-target-feature",
-        "-fp-armv8",
-        "-target-feature",
-        "-fp-armv8d16",
-        "-target-feature",
-        "-fp-armv8d16sp",
-        "-target-feature",
-        "-fp-armv8sp",
-        "-target-feature",
-        "-fullfp16",
-        "-target-feature",
-        "-fp64",
-        "-target-feature",
-        "-d32",
-        "-target-feature",
-        "-neon",
-        "-target-feature",
-        "-sha2",
-        "-target-feature",
-        "-aes",
-        "-target-feature",
-        "-dotprod",
-        "-target-feature",
-        "-fp16fml",
-        "-target-feature",
-        "-bf16",
-        "-target-feature",
-        "-mve.fp",
-        "-target-feature",
-        "-fpregs",
-        "-target-feature",
-        "+strict-align",
-        "-target-abi",
-        "aapcs",
-        "-mfloat-abi",
-        "soft",
-        "-Wunaligned-access",
-        "-debugger-tuning=gdb",
-        "-fdebug-compilation-dir=/",
-        "-fcoverage-compilation-dir=/",
-        "-resource-dir",
-        "sysroot",
-        "-isysroot",
-        "sysroot",
-        "-internal-isystem",
-        "sysroot/include",
-        "-internal-isystem",
-        "sysroot/cm01-exc-rtti/include",
-        "-internal-isystem",
-        "sysroot/cm01/include",
-        "-O2",
-        "-ferror-limit",
-        "19",
-        "-fno-signed-char",
-        "-fgnuc-version=4.2.1",
-        "-fskip-odr-check-in-gmf",
-        "-vectorize-loops",
-        "-vectorize-slp",
-        "-faddrsig",
-        "-o",
-        "tmp/asdf.o",
-        "-x",
-        "c",
-        "test.c"
-    ];
+document.getElementById("downloading").innerText = "Done downloading!";
+
+const COMPILE_FLAGS = {
+    "wasi": ["--target=wasm32-wasip1"],
+
+    "cm01": ["--target=armv6m-unknown-none-eabi"],
+    "cm3": ["--target=armv7m-unknown-none-eabi"],
+    "cm4": ["--target=armv7em-unknown-none-eabi", "-mfpu=none"],
+    "cm4f": ["--target=armv7em-unknown-none-eabihf"],
+
+    'qk-v2a': ["--target=riscv32-unknown-none-elf", "-march=rv32ec_xwchc"],
+    'qk-v34a': ["--target=riscv32-unknown-none-elf", "-march=rv32imac"],
+    'qk-v4bc': ["--target=riscv32-unknown-none-elf", "-march=rv32imac_xwchc"],
+    'qk-v4f': ["--target=riscv32-unknown-none-elf", "-march=rv32imafc_xwchc"],
+}
+
+async function invoke_into_wasm(wasi_fs, args) {
+    let output = [];
     let fds = [
         new OpenFile(new File([])),
-        ConsoleStdout.lineBuffered(msg => console.log(`[WASI stdout] ${msg}`)),
-        ConsoleStdout.lineBuffered(msg => console.warn(`[WASI stderr] ${msg}`)),
+        ConsoleStdout.lineBuffered(msg => output.push(msg)),
+        ConsoleStdout.lineBuffered(msg => output.push(msg)),
         wasi_fs,
     ];
     let wasi_obj = new WASI(args, [], fds);
-    // console.log(wasi_obj);
 
     let inst = await WebAssembly.instantiate(wasm, {
         "wasi_snapshot_preview1": wasi_obj.wasiImport,
     });
-    // console.log(inst);
-    wasi_obj.start(inst);
-    console.log("COMPILE OKAY!");
-    // console.log(wasi_fs);
+    const ret = wasi_obj.start(inst);
+    if (ret !== 0) {
+        console.log(output);
+        alert("Something went wrong!");
+    }
+
+    return output;
 }
-await compile();
 
-async function link() {
-    let args = [
-        "ld.lld",
-        "tmp/asdf.o",
-        "--gc-sections",
-        "-Ttest.ld",
-        "-lcrt0",
-        "-ldummyhost",
-        "-Bstatic",
-        "-EL",
-        "-Lsysroot/cm01-exc-rtti/lib",
-        "-Lsysroot/cm01/lib",
-        "-Lsysroot/lib/armv6m-unknown-none-eabi",
-        "-Lsysroot/cm01-exc-rtti/lib",
-        "-Lsysroot/cm01/lib",
-        "-lc",
-        "-lm",
-        "sysroot/cm01/lib/libclang_rt.builtins.a",
-        "--target2=rel",
-        "-o",
-        "a.out"
-    ];
-    let fds = [
-        new OpenFile(new File([])),
-        ConsoleStdout.lineBuffered(msg => console.log(`[WASI stdout] ${msg}`)),
-        ConsoleStdout.lineBuffered(msg => console.warn(`[WASI stderr] ${msg}`)),
-        wasi_fs,
-    ];
-    let wasi_obj = new WASI(args, [], fds);
-    // console.log(wasi_obj);
+async function do_compile(e) {
+    const source_code = document.getElementById("sourcecode").value;
+    const linkscript = document.getElementById("linkscript").value;
+    const compilerflags = document.getElementById("compileflags").value;
+    const target = document.getElementById("target").value;
 
-    let inst = await WebAssembly.instantiate(wasm, {
-        "wasi_snapshot_preview1": wasi_obj.wasiImport,
-    });
-    // console.log(inst);
-    wasi_obj.start(inst);
-    console.log("LINK OKAY!");
-    // console.log(wasi_fs);
+    let final_compile_flags = ["clang"];
+    if (target === "wasi") {
+        final_compile_flags = final_compile_flags.concat([
+            "--sysroot=sysroot/wasm32-wasip1",
+            "-resource-dir=sysroot/wasm32-wasip1",
+        ])
+    } else {
+        final_compile_flags = final_compile_flags.concat([
+            "--sysroot=sysroot",
+            "-resource-dir=sysroot",
+        ])
+    }
+    final_compile_flags = final_compile_flags.concat(COMPILE_FLAGS[target]);
+    final_compile_flags = final_compile_flags.concat(compilerflags.split(" "));
+    final_compile_flags.push("test.c");
+    if (target !== "wasi") {
+        final_compile_flags.push("-Wl,-Ttest.ld");
+    }
+    final_compile_flags.push("-###");
+    console.log(final_compile_flags);
+
+    const wasi_fs = fs_to_wasi_fs(tarball_fs, [
+        ['tmp', new DirWithIno(new Map(), _xxx_assigned_ino_nums++)],
+        ['test.c', new FileWithIno(new TextEncoder("utf-8").encode(source_code), { ino: _xxx_assigned_ino_nums++ })],
+        ['test.ld', new FileWithIno(new TextEncoder("utf-8").encode(linkscript), { ino: _xxx_assigned_ino_nums++ })],
+    ]);
+    console.log(wasi_fs);
+
+    // RUN THE -### phase
+
+    const driver_xxx_result = await invoke_into_wasm(wasi_fs, final_compile_flags);
+    console.log(driver_xxx_result);
+
+    // Port of whitequark's driver driver
+
+    let state = 0;
+    let commands = [];
+    for (const line of driver_xxx_result) {
+        if (state === 0) {
+            if (![
+                "clang",
+                "Target:",
+                "Thread model:",
+                "InstalledDir:",
+                "Build config:"
+            ].some(x => line.startsWith(x))) {
+                state = 1;
+            }
+        }
+        if (state === 1) {
+            if (line.startsWith(" \"")) {
+                // XXX this is much less robust splitting
+                commands.push(line.split(" ").slice(1).map(x => {
+                    if (x.startsWith('"') && x.endsWith('"')) {
+                        return x.slice(1, x.length - 1);
+                    }
+                    return x;
+                }));
+            } else {
+                state = 2;
+            }
+        }
+    }
+    if (state === 1) {
+        for (let command of commands) {
+            if (command[0] === "") {
+                command = command.slice(1);
+            }
+
+            // XXX I have no idea why this is failing
+            for (let i = 0; i < command.length; i++) {
+                if (command[i].startsWith("/tmp")) {
+                    command[i] = "tmp/asdf.o";
+                }
+            }
+
+            console.log(command);
+            const step_result = await invoke_into_wasm(wasi_fs, command);
+            document.getElementById("output").innerText = step_result.join("\n");
+        }
+    } else {
+        document.getElementById("output").innerText = driver_xxx_result.join("\n");
+        alert("Something went wrong!");
+    }
+
+    const elf_output = wasi_fs.dir.contents.get('a.out').data;
+    const blob = new Blob([elf_output], { type: "application/x-elf" });
+    const url = URL.createObjectURL(blob);
+    let atag = document.createElement("a");
+    atag.href = url;
+    atag.download = "a.out";
+    atag.style = "display: none";
+    document.body.appendChild(atag);
+    atag.click();
+    atag.remove();
+    URL.revokeObjectURL(url);
 }
-await link();
 
-const elf_output = wasi_fs.dir.contents.get('a.out').data;
-const blob = new Blob([elf_output], { type: "application/x-elf" });
-const url = URL.createObjectURL(blob);
-let atag = document.createElement("a");
-atag.href = url;
-atag.download = "a.out";
-atag.style = "display: none";
-document.body.appendChild(atag);
-atag.click();
-atag.remove();
-URL.revokeObjectURL(url);
+document.getElementById("compile").onclick = do_compile;
