@@ -104,8 +104,9 @@ async function do_compile(e) {
     const linkscript = document.getElementById("linkscript").value;
     const compilerflags = document.getElementById("compileflags").value;
     const target = document.getElementById("target").value;
+    const is_cpp = document.getElementById("cpp").checked;
 
-    let final_compile_flags = ["clang"];
+    let final_compile_flags = [is_cpp ? "clang++" : "clang"];
     if (target === "wasi") {
         final_compile_flags = final_compile_flags.concat([
             "--sysroot=sysroot/wasm32-wasip1",
@@ -119,7 +120,11 @@ async function do_compile(e) {
     }
     final_compile_flags = final_compile_flags.concat(COMPILE_FLAGS[target]);
     final_compile_flags = final_compile_flags.concat(compilerflags.split(" "));
-    final_compile_flags.push("test.c");
+    if (is_cpp) {
+        final_compile_flags.push("test.cpp");
+    } else {
+        final_compile_flags.push("test.c");
+    }
     if (target !== "wasi") {
         final_compile_flags.push("-Wl,-Ttest.ld");
     }
@@ -128,7 +133,7 @@ async function do_compile(e) {
 
     const wasi_fs = fs_to_wasi_fs(tarball_fs, [
         ['tmp', new DirWithIno(new Map(), _xxx_assigned_ino_nums++)],
-        ['test.c', new FileWithIno(new TextEncoder("utf-8").encode(source_code), { ino: _xxx_assigned_ino_nums++ })],
+        [is_cpp ? 'test.cpp' : 'test.c', new FileWithIno(new TextEncoder("utf-8").encode(source_code), { ino: _xxx_assigned_ino_nums++ })],
         ['test.ld', new FileWithIno(new TextEncoder("utf-8").encode(linkscript), { ino: _xxx_assigned_ino_nums++ })],
     ]);
     console.log(wasi_fs);
